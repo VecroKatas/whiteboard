@@ -1,15 +1,22 @@
 const socket = new WebSocket('ws://localhost:3000');
 var canvas = new fabric.Canvas('whiteboard');
-var styles = [true, false];
+var styles = [true, false, false, false];
 var stylesFunctions = [function () {choosePointer()}, 
-	function () {chooseFreeDraw()}];
+	function () {chooseFreeDraw()},
+	function () {chooseRect()}, 
+	function () {chooseCirc()}];
 var isDrawing = false, socketId = -1;
 var sentObj, sentObjs, group, groupLeft;
 var isObjectMoving  = false;
 
 var buttons = [document.getElementById("cursorTool"), 
-	document.getElementById("penTool")
+	document.getElementById("penTool"),
+	document.getElementById("rectTool"), 
+	document.getElementById("circTool")
 ];
+
+var colorPicker = document.getElementById("drawing-color");
+var widthElem = document.getElementById("drawing-line-width");
 
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('keydown', key => {if (key.key == "Delete") removeSelected()});
@@ -34,7 +41,6 @@ function changeStyle(styleIndex){
 			buttons[i].classList.add("active");
 		}
 	}
-	
 }
 
 
@@ -45,6 +51,35 @@ var chooseFreeDraw = function(){
 	canvas.isDrawingMode = true;
 	isDrawing = true;
 }
+var chooseRect = function(){
+	onSolidRect();
+}
+var chooseCirc = function(){
+	onSolidCirc();
+}
+
+
+var onSolidRect = function () {
+  const rect = new fabric.Rect({
+		left: 100,
+		top: 100,
+		fill: colorPicker.value,
+		width: 100,
+		height: 100
+	});
+	canvas.add(rect);
+}
+
+var onSolidCirc = function () {
+  const circle = new fabric.Circle({
+		left: 200,
+		top: 200,
+		fill: colorPicker.value,
+		radius: 50
+	});
+	canvas.add(circle);
+}
+
 
 var removeSelected = function(){
 	var obj = canvas.getActiveObject();
@@ -55,9 +90,6 @@ var removeSelected = function(){
 function getObjectFromId(ctx, id){
 	var currentObjects = ctx.getObjects();
 	for (var i = currentObjects.length-1; i >= 0; i--) {
-		console.log(currentObjects[i].id);
-		console.log(id);
-		console.log(currentObjects[i].id == id);
 	  if(currentObjects[i].id == id)
 	    return currentObjects[i];
 	}
@@ -65,10 +97,7 @@ function getObjectFromId(ctx, id){
 }
 
 function Board_OnSync(_canvas, obj){
-	console.log("sync");
   var existing = getObjectFromId(_canvas, obj.id);
-	console.log(existing);
-	console.log(obj);
 	
 	if(obj.removed){
 		if(existing){
@@ -85,6 +114,9 @@ function Board_OnSync(_canvas, obj){
 		if(obj.type === 'rect'){
 			_canvas.add(new fabric.Rect(obj));
 		}
+		else if(obj.type === 'circle'){
+			_canvas.add(new fabric.Circle(obj));
+		}
 		else if (obj.type === 'path'){
 			_canvas.add(new fabric.Path(obj.path));
 		}
@@ -93,8 +125,6 @@ function Board_OnSync(_canvas, obj){
 }
 
 function moveObject(obj){
-
-	console.log(obj);
 	if (group)
 	{
 		obj.left = group.left + obj.left - groupLeft.left;
@@ -107,7 +137,6 @@ canvas.on('object:added', function(options) {
 	if (options.target) {
 		var obj = options.target;
 		if(obj.type == 'rect'){
-			console.log('rect');
 		} else if (obj.type == 'path'){
 			obj.fill = 'rgba(0,0,0,0)';
 			obj.stroke = 'rgb(0, 0, 0)';
@@ -182,7 +211,6 @@ canvas.on('mouse:up', function () {
     isObjectMoving = false;
 		var objs = canvas.getActiveObjects();
 		var left = findLeft(objs);
-		console.log(left);
 		if (objs[0].group)
 		{
 			var group = objs[0].group;
@@ -200,7 +228,6 @@ canvas.on('mouse:up', function () {
 		})(left.toJSON);
 
 		let serializedLeft = left.toJSON();
-		console.log(serializedLeft);
 		socket.send(JSON.stringify(serializedLeft));
 		objs.forEach(o =>{
 			if (o !== left){
@@ -224,11 +251,9 @@ canvas.on('mouse:up', function () {
 socket.onmessage = function(event) {
 	if (socketId == -1) {
 		socketId = JSON.parse(event.data).socketId;
-		console.log(JSON.parse(event.data));
 	}
 	else{
 		sentObjs = JSON.parse(event.data);
-		console.log(sentObjs);
 
 		if (sentObjs.type == 'state'){
 			var objs = canvas.getObjects();

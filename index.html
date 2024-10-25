@@ -8,11 +8,22 @@
   </head>
   <body>
     <div id="sidebar">
+      <label for="drawing-color">Color:</label>
+      <input type="color" id="drawing-color" value="#000000" style="height: 60px">
+      
+      <label for="drawing-line-width">Line width:</label>
+      <input type="range" id="drawing-line-width" min="1" max="20" value="5">
       <div class="tool" id="cursorTool" onclick="changeStyle(0)">
           <span>🖱️</span>
       </div>
       <div class="tool" id="penTool" onclick="changeStyle(1)">
           <div>✏️</div>
+      </div>
+      <div class="tool" id="rectTool" onclick="changeStyle(2)">
+          <div style="font: 100px;">∎</div>
+      </div>
+      <div class="tool" id="circTool" onclick="changeStyle(3)">
+          <div style="font: 50px;">●</div>
       </div>
   </div>
 
