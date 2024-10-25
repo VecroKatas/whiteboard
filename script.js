@@ -6,7 +6,7 @@ var stylesFunctions = [function () {choosePointer()},
 	function () {chooseRect()}, 
 	function () {chooseCirc()}];
 var isDrawing = false, socketId = -1;
-var sentObj, sentObjs, group, groupLeft;
+var sentObj, sentObjs, group, groupLeft, groupTop, groupN;
 var isObjectMoving  = false;
 
 var buttons = [document.getElementById("cursorTool"), 
@@ -16,10 +16,17 @@ var buttons = [document.getElementById("cursorTool"),
 ];
 
 var colorPicker = document.getElementById("drawing-color");
-var widthElem = document.getElementById("drawing-line-width");
+var lineWidth = document.getElementById("drawing-line-width");
 
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('keydown', key => {if (key.key == "Delete") removeSelected()});
+colorPicker.addEventListener('change', function() {
+	canvas.freeDrawingBrush.color = this.value;
+});
+
+lineWidth.addEventListener('input', function() {
+	canvas.freeDrawingBrush.width = parseInt(this.value, 10);
+});
 
 function resizeCanvas() {
   canvas.setHeight(window.innerHeight);
@@ -80,14 +87,11 @@ var onSolidCirc = function () {
 	canvas.add(circle);
 }
 
-colorPicker.addEventListener('change', function() {
-	canvas.freeDrawingBrush.color = this.value;
-});
-
 var removeSelected = function(){
-	var obj = canvas.getActiveObject();
-	if(obj)
-		canvas.remove(obj);
+	var objs = canvas.getActiveObjects();
+	objs.forEach(o => {
+		canvas.remove(o);
+	})
 }
 
 function getObjectFromId(ctx, id){
@@ -131,7 +135,11 @@ function moveObject(obj){
 	if (group)
 	{
 		obj.left = group.left + obj.left - groupLeft.left;
-		obj.top = group.top + obj.top - groupLeft.top;
+		obj.top = group.top + obj.top - groupTop;
+	}
+	else{
+		obj.left = sentObj.left;
+		obj.top = sentObj.top;
 	}
 }
 
@@ -142,8 +150,9 @@ canvas.on('object:added', function(options) {
 		if(obj.type == 'rect'){
 		} else if (obj.type == 'path'){
 			obj.fill = 'rgba(0,0,0,0)';
-			obj.stroke = sentObj.stroke;
 			if (sentObj){
+				obj.stroke = sentObj.stroke;
+				obj.strokeWidth = sentObj.strokeWidth;
 				obj.set('socketId', sentObj.socketId);
 				obj.set('id', sentObj.id);
 				obj.set('removed', sentObj.removed);
@@ -209,16 +218,29 @@ function findLeft(objs){
 	return leftest;
 }
 
+function findTop(objs){
+	var topest, topy = canvas.height;
+	objs.forEach(o =>{
+		if (o.top < topy){
+			topy = o.top;
+			topest = o;
+		}
+	});
+	return topest;
+}
+
 canvas.on('mouse:up', function () {
   if (isObjectMoving){
     isObjectMoving = false;
 		var objs = canvas.getActiveObjects();
 		var left = findLeft(objs);
+		var top = findTop(objs);
 		if (objs[0].group)
 		{
 			var group = objs[0].group;
 			let groups = group.toJSON();
 			socket.send(JSON.stringify(groups));
+			socket.send(JSON.stringify({topy: top.top}));
 		}
 		
 		left.toJSON = (function(toJSON) {
@@ -259,6 +281,7 @@ socket.onmessage = function(event) {
 	else{
 		sentObjs = JSON.parse(event.data);
 		console.log(sentObjs);
+		canvas.discardActiveObject().renderAll();
 
 		if (sentObjs.type == 'state'){
 			var objs = canvas.getObjects();
@@ -267,15 +290,36 @@ socket.onmessage = function(event) {
 		else{
 			if (sentObjs.type == "activeSelection"){
 				group = structuredClone(sentObjs);
+				groupN = group.objects.length + 1;
 				groupLeft = undefined;
+				groupTop = undefined;
 			}
 			else
 			{
+				if (groupN > 0) groupN--;
+				if (group){
+					if (!groupTop){
+						groupTop = sentObjs.topy;
+					}
+					else {
+						sentObj = sentObjs;
+						if (!groupLeft) groupLeft = sentObj;
+						Board_OnSync(canvas, sentObj);
+					}
+				}
+				else{
 					sentObj = sentObjs;
-					if (!groupLeft) groupLeft = sentObj;
-					Board_OnSync(canvas, sentObj);
+						if (!groupTop){
+							groupTop = sentObj.topy;
+						}
+						else if (!groupLeft) groupLeft = sentObj;
+						Board_OnSync(canvas, sentObj);
+				}
 			}
-				
+			
+			if (groupN == 0) {
+				group = undefined;
+			}
 			sentObj = undefined;
 			sentObjs = undefined;
 		}
