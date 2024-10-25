@@ -80,6 +80,9 @@ var onSolidCirc = function () {
 	canvas.add(circle);
 }
 
+colorPicker.addEventListener('change', function() {
+	canvas.freeDrawingBrush.color = this.value;
+});
 
 var removeSelected = function(){
 	var obj = canvas.getActiveObject();
@@ -139,7 +142,7 @@ canvas.on('object:added', function(options) {
 		if(obj.type == 'rect'){
 		} else if (obj.type == 'path'){
 			obj.fill = 'rgba(0,0,0,0)';
-			obj.stroke = 'rgb(0, 0, 0)';
+			obj.stroke = sentObj.stroke;
 			if (sentObj){
 				obj.set('socketId', sentObj.socketId);
 				obj.set('id', sentObj.id);
@@ -251,9 +254,11 @@ canvas.on('mouse:up', function () {
 socket.onmessage = function(event) {
 	if (socketId == -1) {
 		socketId = JSON.parse(event.data).socketId;
+		console.log(JSON.parse(event.data));
 	}
 	else{
 		sentObjs = JSON.parse(event.data);
+		console.log(sentObjs);
 
 		if (sentObjs.type == 'state'){
 			var objs = canvas.getObjects();

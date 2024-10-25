@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 const server = new WebSocket.Server({ port: 3000 });
 let sockets=[];
-var state = 
+var state;
 
 server.on('connection', socket => {
   sockets.push(socket);
